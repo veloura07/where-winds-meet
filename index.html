@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sreeshanth Reddy Namireddy — AI Systems & Infrastructure Builder. Immersive Living Digital Ecosystem Portfolio.">
+    <title>Sreeshanth Reddy Namireddy | Immersive Living Portfolio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700&family=Fira+Code:wght@400;500;600&family=Playfair+Display:ital,wght=0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Cinematic Film Grain Overlay -->
+    <div class="film-grain"></div>
+
+    <!-- Cinematic Custom Cursor -->
+    <div id="custom-cursor">
+        <div class="cursor-dot"></div>
+        <div class="cursor-ring"></div>
+    </div>
+
+    <!-- Preloader -->
+    <div id="preloader">
+        <div class="loader-inner">
+            <div class="logo-animation">
+                <span class="bracket">{</span>
+                <span class="dot">•</span>
+                <span class="bracket">}</span>
+            </div>
+            <p class="loader-text">Awakening Living Landscape...</p>
+            <div class="loader-bar-bg">
+                <div class="loader-bar-fill"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN WORLD SYSTEM -->
+    <div id="world">
+        <!-- 1. Background Layers -->
+        <div id="base-image" class="layer"></div>
+        <canvas id="galaxy-canvas" class="layer"></canvas>
+        
+        <!-- 2. Animated swaying layers using CSS webkit-mask-image -->
+        <div id="tree-left-sway" class="layer"></div>
+        <div id="tree-right-sway" class="layer"></div>
+        
+        <!-- 3. Rushing Water Layer (Waterfall & River bezier tracers) -->
+        <canvas id="water-canvas" class="layer"></canvas>
+        
+        <!-- 4. Volumetric Light Flares -->
+        <div id="sun-flare"></div>
+        <div id="atmosphere" class="layer"></div>
+        
+        <!-- 5. General Physics Layer (Birds, Petals, Fireflies, Weather) -->
+        <canvas id="physics-canvas" class="layer"></canvas>
+
+        <!-- 6. Interactive Hotspots Layer (Invisible nodes with floating markers over elements) -->
+        <div id="hotspots-container">
+            <!-- Bridge Hotspot (Welcome / About) -->
+            <div class="hotspot-node" style="left: 62%; top: 84%;" data-modal="modal-about">
+                <div class="hotspot-ping"></div>
+                <div class="hotspot-label">Wooden Bridge <span class="hotspot-topic">Welcome & About</span></div>
+            </div>
+
+            <!-- Waterfall Hotspot (Skills) -->
+            <div class="hotspot-node" style="left: 31%; top: 52%;" data-modal="modal-skills">
+                <div class="hotspot-ping"></div>
+                <div class="hotspot-label">Echoing Waterfall <span class="hotspot-topic">Technical Skills</span></div>
+            </div>
+
+            <!-- Village Hotspot (Projects) -->
+            <div class="hotspot-node" style="left: 68%; top: 54%;" data-modal="modal-projects">
+                <div class="hotspot-ping"></div>
+                <div class="hotspot-label">Hidden Leaf Village <span class="hotspot-topic">Featured Projects</span></div>
+            </div>
+
+            <!-- Mountain Hotspot (Greenhouse Ideas) -->
+            <div class="hotspot-node" style="left: 65%; top: 22%;" data-modal="modal-greenhouse">
+                <div class="hotspot-ping"></div>
+                <div class="hotspot-label">Vision Summit <span class="hotspot-topic">Idea Greenhouse</span></div>
+            </div>
+
+            <!-- Sky Hotspot (Contact / Resume) -->
+            <div class="hotspot-node" style="left: 88%; top: 38%;" data-modal="modal-contact">
+                <div class="hotspot-ping"></div>
+                <div class="hotspot-label">Cosmic Shrine <span class="hotspot-topic">Contact & Resume</span></div>
+            </div>
+
+            <!-- Secret Milestone Hotspot (Ancient Shrine) - Hidden initially -->
+            <div class="hotspot-node hidden" id="hotspot-shrine" style="left: 45%; top: 20%;" data-modal="modal-shrine">
+                <div class="hotspot-ping" style="background: rgba(251, 191, 36, 0.4); border-color: rgba(251, 191, 36, 0.85);"></div>
+                <div class="hotspot-label text-amber-300">Ancient Shrine <span class="hotspot-topic text-amber-400/80">Secret Lore Unlocked</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HUD MENU CONTROLS (Corner Bars & Slider Widgets) -->
+    <div id="hud-top-bar">
+        <div class="brand">
+            <span class="brand-dot"></span>
+            <span class="brand-name">Sreeshanth Reddy Namireddy</span>
+            <span class="brand-separator">|</span>
+            <span class="brand-title">AI Systems & Infrastructure</span>
+        </div>
+        <div class="hud-status">
+            <span class="pulse-dot"></span>
+            <span id="time-display">Syncing...</span>
+            <span id="phase-display" class="opacity-60">Live</span>
+        </div>
+    </div>
+
+    <!-- CLIMATE & BAROMETER MONITOR (Top Right Overlay) -->
+    <div id="climate-hud">
+        <div class="hud-title">CLIMATE TELEMETRY</div>
+        <div class="climate-grid">
+            <div>TEMP: <span id="baro-temp" class="text-amber-400">--</span></div>
+            <div>HUMID: <span id="baro-humid" class="text-cyan-400">--</span></div>
+            <div>BARO: <span id="baro-press" class="text-emerald-400">--</span></div>
+            <div>SEASON: <span id="baro-season" class="text-pink-400">--</span></div>
+        </div>
+    </div>
+
+    <!-- Floating Ecosystem Controls (Bottom Right) -->
+    <div id="ecosystem-hud">
+        <!-- Weather Widget -->
+        <div class="hud-widget" id="weather-widget">
+            <button class="hud-btn active" data-weather="clear" title="Clear Day">☀️</button>
+            <button class="hud-btn" data-weather="rain" title="Rainfall">🌧️</button>
+            <button class="hud-btn" data-weather="snow" title="Snowfall">❄️</button>
+            <button class="hud-btn" data-weather="fog" title="Mountain Mist">🌫️</button>
+            <button class="hud-btn" data-weather="storm" title="Lightning Storm">⛈️</button>
+        </div>
+
+        <!-- Manual Time Selector -->
+        <div class="hud-widget" id="time-widget">
+            <span class="time-icon">🌙</span>
+            <input type="range" id="time-slider" min="0" max="1" step="0.05" value="0.5" title="Day/Night Dial">
+            <span class="time-icon">☀️</span>
+        </div>
+
+        <!-- Audio Volume Control -->
+        <div class="hud-widget" id="audio-widget">
+            <button id="mute-toggle" class="hud-btn" title="Toggle Nature Sounds">🔇</button>
+            <input type="range" id="volume-slider" min="0" max="1" step="0.1" value="0.5" title="Volume Slider">
+        </div>
+
+        <!-- Cinematic Postcard Capture -->
+        <div class="hud-widget" id="capture-widget">
+            <button id="capture-btn" class="hud-btn" title="Capture Cinematic Postcard">📷</button>
+        </div>
+
+        <!-- Image Loader Fallback -->
+        <div class="hud-widget">
+            <label for="image-upload" class="cursor-pointer px-3 py-1.5 rounded transition text-[10px] uppercase tracking-wider font-semibold bg-white/10 hover:bg-white/20 border border-white/20">Load Art</label>
+            <input type="file" id="image-upload" accept="image/*" class="hidden">
+        </div>
+    </div>
+
+    <!-- Quick Navigation Compass Menu (Bottom Left) -->
+    <div id="navigation-compass">
+        <div class="compass-ring">
+            <button class="compass-label" style="top: 5px; left: 50%; transform: translateX(-50%);" data-modal="modal-greenhouse">N</button>
+            <button class="compass-label" style="right: 5px; top: 50%; transform: translateY(-50%);" data-modal="modal-projects">E</button>
+            <button class="compass-label" style="bottom: 5px; left: 50%; transform: translateX(-50%);" data-modal="modal-about">S</button>
+            <button class="compass-label" style="left: 5px; top: 50%; transform: translateY(-50%);" data-modal="modal-skills">W</button>
+            <div class="compass-pointer"></div>
+        </div>
+        <span class="compass-tip-text">Ecosystem Navigator</span>
+    </div>
+
+    <!-- ==================== GLASSMORPHISM MODALS ==================== -->
+
+    <!-- Modal 1: ABOUT ME (Triggered by Bridge) -->
+    <div id="modal-about" class="glass-modal">
+        <div class="modal-card">
+            <button class="modal-close-btn">&times;</button>
+            <span class="modal-tag">Ecosystem Node: Wooden Bridge</span>
+            <h2 class="modal-title font-playfair">The Flow of Understanding</h2>
+            
+            <div class="modal-body-content">
+                <div class="narrative-section">
+                    <p class="mb-4 text-white/90 text-sm">
+                        "Why does this exist? How does it work? Can it be reinvented?" — These questions drive my exploration of modern computing from first principles.
+                    </p>
+                    <p class="mb-4 text-white/80 text-sm">
+                        I am Sreeshanth Reddy Namireddy. I believe the next generation of software will not simply assist people — it will reason, collaborate, automate, and act. As autonomous agent clusters move toward production, entirely new systems challenges emerge around reliability, observability, and containerized scale.
+                    </p>
+                    <p class="text-white/80 text-sm">
+                        Instead of chasing high-level abstraction libraries, I aim to understand systems deeply — from operating systems, distributed protocols, databases, and network buffers, to PyTorch tensors, model runtimes, and local serving backplanes.
+                    </p>
+                </div>
+                <div class="meta-beliefs mt-6 flex flex-wrap gap-2">
+                    <span class="belief-pill text-[10px]">Build with First Principles</span>
+                    <span class="belief-pill text-[10px]">Learn Deeply, Build Broadly</span>
+                    <span class="belief-pill text-[10px]">Reliability is a Feature</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 2: SKILLS (Triggered by Waterfall) -->
+    <div id="modal-skills" class="glass-modal">
+        <div class="modal-card">
+            <button class="modal-close-btn">&times;</button>
+            <span class="modal-tag">Ecosystem Node: Echoing Waterfall</span>
+            <h2 class="modal-title font-playfair">Technical Skills & Pillars</h2>
+            
+            <div class="modal-body-content">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                    <div class="skill-category">
+                        <h4 class="text-xs uppercase tracking-widest text-[#4ade80] mb-3">Programming Stack</h4>
+                        <ul class="space-y-2">
+                            <li class="flex justify-between border-b border-white/5 pb-1">
+                                <span>Python / PyTorch</span>
+                                <span class="text-[#4ade80]">Expert</span>
+                            </li>
+                            <li class="flex justify-between border-b border-white/5 pb-1">
+                                <span>TypeScript / JavaScript</span>
+                                <span class="text-white/70">Advanced</span>
+                            </li>
+                            <li class="flex justify-between border-b border-white/5 pb-1">
+                                <span>C / C++</span>
+                                <span class="text-white/70">Intermediate</span>
+                            </li>
+                            <li class="flex justify-between border-b border-white/5 pb-1">
+                                <span>SQL / Datastores</span>
+                                <span class="text-[#4ade80]">Advanced</span>
+                            </li>
+                            <li class="flex justify-between pb-1">
+                                <span>Rust / Go</span>
+                                <span class="text-[#4ade80]/50">Learning</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="skill-category">
+                        <h4 class="text-xs uppercase tracking-widest text-[#4ade80] mb-3">AI & Systems Internals</h4>
+                        <ul class="space-y-2">
+                            <li class="flex justify-between border-b border-white/5 pb-1">
+                                <span>Distributed Agent Runtimes</span>
+                                <span class="text-white/90">LangGraph</span>
+                            </li>
+                            <li class="flex justify-between border-b border-white/5 pb-1">
+                                <span>Vector Embedding Buffers</span>
+                                <span class="text-white/90">ChromaDB / Qdrant</span>
+                            </li>
+                            <li class="flex justify-between border-b border-white/5 pb-1">
+                                <span>Distributed Cache Pipelines</span>
+                                <span class="text-white/90">Redis / Message Queues</span>
+                            </li>
+                            <li class="flex justify-between border-b border-white/5 pb-1">
+                                <span>Developer Integrations</span>
+                                <span class="text-[#4ade80]">Model Context Protocol</span>
+                            </li>
+                            <li class="flex justify-between pb-1">
+                                <span>Operating Environments</span>
+                                <span class="text-white/90">Docker / Linux Kernel</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="skill-meter-section mt-6 border-t border-white/10 pt-4">
+                    <h4 class="text-xs uppercase tracking-widest text-[#4ade80] mb-3">System Focus Distribution</h4>
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-[11px] mb-1">
+                                <span class="uppercase tracking-widest opacity-70">Infrastructure & Orchestration</span>
+                                <span>90%</span>
+                            </div>
+                            <div class="meter-bar"><div class="meter-fill" style="width: 90%;"></div></div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-[11px] mb-1">
+                                <span class="uppercase tracking-widest opacity-70">AI Reasoning & Models</span>
+                                <span>80%</span>
+                            </div>
+                            <div class="meter-bar"><div class="meter-fill" style="width: 80%;"></div></div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-[11px] mb-1">
+                                <span class="uppercase tracking-widest opacity-70">Distributed Systems & Latency</span>
+                                <span>70%</span>
+                            </div>
+                            <div class="meter-bar"><div class="meter-fill" style="width: 70%;"></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 3: PROJECTS (Triggered by Village) -->
+    <div id="modal-projects" class="glass-modal">
+        <div class="modal-card max-w-4xl">
+            <button class="modal-close-btn">&times;</button>
+            <span class="modal-tag">Ecosystem Node: Hidden Leaf Village</span>
+            <h2 class="modal-title font-playfair">Featured Peak Projects</h2>
+            
+            <div class="modal-body-content overflow-y-auto max-h-[60vh] pr-2">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                    <!-- Project 1 -->
+                    <div class="project-item-card">
+                        <span class="project-tag">AI Governance</span>
+                        <h3 class="project-name font-playfair">VERI</h3>
+                        <p class="project-description">
+                            An AI runtime platform designed to enforce policy rules, record execution traces, perform risk evaluations, and support human-in-the-loop workflows for autonomous agent runtimes.
+                        </p>
+                        <div class="project-stack flex flex-wrap gap-1.5 mt-3">
+                            <span>LangGraph</span>
+                            <span>FastAPI</span>
+                            <span>Docker</span>
+                            <span>Observability</span>
+                        </div>
+                    </div>
+
+                    <!-- Project 2 -->
+                    <div class="project-item-card">
+                        <span class="project-tag">Speech Interaction</span>
+                        <h3 class="project-name font-playfair">Project S</h3>
+                        <p class="project-description">
+                            An interactive collaboration environment exploring speech-processing interfaces, persistent long-term memory clusters, and agent task orchestration.
+                        </p>
+                        <div class="project-stack flex flex-wrap gap-1.5 mt-3">
+                            <span>WebSockets</span>
+                            <span>Next.js</span>
+                            <span>Vector Databases</span>
+                            <span>Redis</span>
+                        </div>
+                    </div>
+
+                    <!-- Project 3 -->
+                    <div class="project-item-card">
+                        <span class="project-tag">Desktop Automation</span>
+                        <h3 class="project-name font-playfair">Solomon X</h3>
+                        <p class="project-description">
+                            A privacy-first local workspace integrating conversational model bindings, file system tools, and native desktop automation handlers via MCP.
+                        </p>
+                        <div class="project-stack flex flex-wrap gap-1.5 mt-3">
+                            <span>Python</span>
+                            <span>SQLite</span>
+                            <span>Model Context Protocol</span>
+                            <span>Edge AI</span>
+                        </div>
+                    </div>
+
+                    <!-- Project 4 -->
+                    <div class="project-item-card">
+                        <span class="project-tag">Hardware Edge</span>
+                        <h3 class="project-name font-playfair">Cognitive Desk Companion</h3>
+                        <p class="project-description">
+                            A local edge computing device combining voice interfaces and local hardware triggers to explore offline assistant loops.
+                        </p>
+                        <div class="project-stack flex flex-wrap gap-1.5 mt-3">
+                            <span>Raspberry Pi</span>
+                            <span>C++</span>
+                            <span>vLLM Serving</span>
+                            <span>Microcontrollers</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 4: GREENHOUSE (Triggered by Mountains) -->
+    <div id="modal-greenhouse" class="glass-modal">
+        <div class="modal-card">
+            <button class="modal-close-btn">&times;</button>
+            <span class="modal-tag">Ecosystem Node: Vision Summit</span>
+            <h2 class="modal-title font-playfair">The Idea Greenhouse</h2>
+            
+            <div class="modal-body-content">
+                <p class="mb-4 text-white/70 text-xs uppercase tracking-widest">Active research pipeline & incubating concepts</p>
+                <div class="space-y-4 text-sm">
+                    <div class="greenhouse-seed">
+                        <span class="seed-badge seed-thinking">🌱 Incubating</span>
+                        <h4 class="seed-title font-playfair">Decentralized Agent Runtimes</h4>
+                        <p class="seed-desc text-white/80">Exploring peer-to-peer coordination protocols for agent execution states to replace centralized coordinators and prevent single point of failures.</p>
+                    </div>
+
+                    <div class="greenhouse-seed">
+                        <span class="seed-badge seed-designing">🌿 Designing</span>
+                        <h4 class="seed-title font-playfair">Context Partitioning for Safety</h4>
+                        <p class="seed-desc text-white/80">Developing isolation architectures that separate model reasoning prompts from unverified OS code executors using lightweight sandboxed containers.</p>
+                    </div>
+
+                    <div class="greenhouse-seed">
+                        <span class="seed-badge seed-proto">🌳 Prototyping</span>
+                        <h4 class="seed-title font-playfair">GPU Inference Scheduler</h4>
+                        <p class="seed-desc text-white/80">Optimizing pipeline scheduling queues for local small language model serving on hardware backplanes to improve tokens per second.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 6: SECRET ANCIENT SHRINE (Triggered by Visit Milestone) -->
+    <div id="modal-shrine" class="glass-modal">
+        <div class="modal-card">
+            <button class="modal-close-btn">&times;</button>
+            <span class="modal-tag text-amber-300">Secret Milestone Node: Ancient Shrine</span>
+            <h2 class="modal-title font-playfair text-amber-200">The Valley's Secret Lore</h2>
+            
+            <div class="modal-body-content text-sm space-y-4">
+                <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded">
+                    <span class="text-xs uppercase font-mono text-amber-400 font-semibold">🌌 Discovery Achievement Unlocked!</span>
+                    <p class="text-white/90 text-xs mt-1">You have successfully explored and refreshed Sreeshanth Namireddy's Digital Universe multiple times. As a reward, the spirit guide has revealed the coordinates of the secret mountaintop shrine.</p>
+                </div>
+                <div class="space-y-2">
+                    <h4 class="font-bold text-white font-playfair">Systems Philosophy & Passion</h4>
+                    <p class="text-white/80">Sreeshanth designs software like nature designs ecosystems: modular, resilient, and adaptive. Every service, WebSocket pipeline, and LLM orchestration step serves a purpose in the broader environment, striving for high throughput and zero memory leaks.</p>
+                </div>
+                <div class="space-y-2 border-t border-white/10 pt-3">
+                    <h4 class="font-bold text-white font-playfair">Mascot Message</h4>
+                    <p class="italic text-white/60 font-mono text-[11px]">"The valley remembers those who observe it closely. Keep exploring, and may your compilers always run clean."</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 5: CONTACT & RESUME (Triggered by Sky) -->
+    <div id="modal-contact" class="glass-modal">
+        <div class="modal-card">
+            <button class="modal-close-btn">&times;</button>
+            <span class="modal-tag">Ecosystem Node: Cosmic Shrine</span>
+            <h2 class="modal-title font-playfair">Contact & Resume</h2>
+            
+            <div class="modal-body-content">
+                <div class="contact-details space-y-4 text-sm">
+                    <div>
+                        <span class="text-xs uppercase tracking-widest text-[#4ade80]">Email Coordinates</span>
+                        <p class="text-lg font-mono text-white mt-1">sreeshanth.namireddy@outlook.com</p>
+                    </div>
+                    <div>
+                        <span class="text-xs uppercase tracking-widest text-[#4ade80]">Digital Identity</span>
+                        <p class="text-lg font-mono text-white mt-1">
+                            <a href="https://github.com/sreeshanth-reddy" target="_blank" class="hover:underline">github.com/sreeshanth-reddy</a>
+                        </p>
+                    </div>
+                    <div>
+                        <span class="text-xs uppercase tracking-widest text-[#4ade80]">Targeting Focus</span>
+                        <p class="text-white/80 mt-1">Seeking GSoC Mentorship, Systems Engineer opportunities, and hard engineering problems.</p>
+                    </div>
+                </div>
+
+                <div class="resume-download-box mt-6 border-t border-white/10 pt-4 text-center">
+                    <p class="text-xs opacity-70 mb-3">Download Sreeshanth's detailed professional chronicle.</p>
+                    <a href="README.md" download class="inline-block px-6 py-2.5 rounded-full bg-white text-black font-semibold text-xs uppercase tracking-widest hover:bg-white/80 transition duration-300">Download Chronology (Resume)</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NARRATOR NOTIFICATION BOX -->
+    <div id="narrator-box" class="hidden">
+        <span class="narrator-pulse"></span>
+        <p id="narrator-text"></p>
+    </div>
+
+    <!-- OPERATOR CONSOLE INTERACTIVE TERMINAL (Bottom Center Overlay) -->
+    <button id="terminal-trigger-btn" title="Open Operators Terminal">
+        <span class="terminal-icon-code">&gt;_</span> Console
+    </button>
+
+    <div id="terminal-modal" class="glass-modal">
+        <div class="modal-card max-w-2xl">
+            <div class="terminal-header flex justify-between items-center border-b border-white/10 pb-2 mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full bg-red-500"></span>
+                    <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+                    <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                    <span class="text-xs font-mono uppercase tracking-widest opacity-60 ml-2">Operator Console</span>
+                </div>
+                <button class="terminal-close-btn text-white/70 hover:text-white">&times;</button>
+            </div>
+            
+            <div class="terminal-body font-mono text-xs text-white/95">
+                <div class="terminal-welcome mb-3 text-white/60">
+                    Sreeshanth Namireddy Ecosystem Core v1.4.2 [Online]<br>
+                    Type <span class="text-[#4ade80]">help</span> to list coordinates, or click buttons/hotspots on screen.
+                </div>
+                <div class="terminal-history overflow-y-auto max-h-[300px] mb-3 space-y-2 pr-1"></div>
+                <div class="terminal-input-line flex items-center gap-2 border-t border-white/5 pt-2">
+                    <span class="text-[#4ade80]">&gt;</span>
+                    <input type="text" id="terminal-input" placeholder="Type command..." autocomplete="off" spellcheck="false" class="bg-transparent border-none outline-none flex-grow text-white font-mono">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HELP WARNING FOR IMAGE RESOLVER -->
+    <div id="help-text" onclick="this.style.display='none'">
+        <h2 class="text-xl mb-2 font-bold font-playfair">Scenic Artwork Not Found?</h2>
+        <p class="text-white/70 text-sm">If the background is black, the browser needs the artwork path.<br>Use the <b>Load Art</b> button in the bottom right corner to upload your image file directly.</p>
+        <p class="text-white/40 text-[9px] mt-4 uppercase tracking-widest">(Click to dismiss)</p>
+    </div>
+
+    <!-- CDNS -->
+    <script src="engine.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
