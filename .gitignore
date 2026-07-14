@@ -1,0 +1,18 @@
+# Node dependencies
+node_modules/
+
+# Production build artifacts
+dist/
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# VS Code / IDE files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

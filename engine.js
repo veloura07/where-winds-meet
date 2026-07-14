@@ -15,6 +15,7 @@ class LivingWorldEngine {
         this.waterCanvas = document.getElementById('water-canvas');
         this.physicsCanvas = document.getElementById('physics-canvas');
         this.galaxyCanvas = document.getElementById('galaxy-canvas');
+        this.webglCanvas = document.getElementById('webgl-canvas');
         
         this.wCtx = this.waterCanvas.getContext('2d');
         this.pCtx = this.physicsCanvas.getContext('2d');
@@ -87,6 +88,8 @@ class LivingWorldEngine {
         this.butterflies = [];
         this.fireflies = [];
         this.stars = [];
+        this.shootingStars = [];
+        this.commitCount = 42;
         
         // Wildlife animals
         this.koi = null;
@@ -142,6 +145,259 @@ class LivingWorldEngine {
         this.koi = new KoiFish(this.width, this.height);
         this.squirrel = new Squirrel(this.width, this.height);
         this.fox = new Fox(this.width, this.height);
+        
+        this.initWebGL();
+
+        // Build Left Tree Skeleton (Y: 72%, X: 12%)
+        this.leftTree = new TreeBranch(this.height * 0.12, 0, 8.0);
+        const lBranch1 = this.leftTree.addChild(this.height * 0.08, -0.4, 4.0);
+        const lBranch2 = this.leftTree.addChild(this.height * 0.08, 0.4, 4.0);
+        lBranch1.addChild(this.height * 0.05, -0.3, 1.5);
+        lBranch1.addChild(this.height * 0.05, 0.2, 1.5);
+        lBranch2.addChild(this.height * 0.05, -0.2, 1.5);
+        lBranch2.addChild(this.height * 0.05, 0.3, 1.5);
+        
+        // Build Right Tree Skeleton (Y: 84%, X: 85%)
+        this.rightTree = new TreeBranch(this.height * 0.14, 0, 9.0);
+        const rBranch1 = this.rightTree.addChild(this.height * 0.09, -0.35, 4.5);
+        const rBranch2 = this.rightTree.addChild(this.height * 0.09, 0.35, 4.5);
+        rBranch1.addChild(this.height * 0.06, -0.25, 1.8);
+        rBranch1.addChild(this.height * 0.06, 0.2, 1.8);
+        rBranch2.addChild(this.height * 0.06, -0.2, 1.8);
+        rBranch2.addChild(this.height * 0.06, 0.25, 1.8);
+    }
+    
+    initWebGL() {
+        if (!window.THREE) return;
+        
+        this.renderer = new THREE.WebGLRenderer({
+            canvas: this.webglCanvas,
+            alpha: true,
+            antialias: true,
+            powerPreference: "high-performance"
+        });
+        this.renderer.setSize(this.width, this.height);
+        this.renderer.setPixelRatio(this.dpr);
+        
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.PerspectiveCamera(45, this.width / this.height, 0.1, 1000);
+        this.camera.position.set(0, 0, 10);
+        
+        this.rtScene = new THREE.WebGLRenderTarget(this.width * this.dpr, this.height * this.dpr, {
+            minFilter: THREE.LinearFilter,
+            magFilter: THREE.LinearFilter,
+            format: THREE.RGBAFormat
+        });
+        
+        const postVertexShader = `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = vec4(position, 1.0);
+            }
+        `;
+        
+        const postFragmentShader = `
+            uniform sampler2D tDiffuse;
+            uniform float uExposure;
+            uniform float uBloomStrength;
+            uniform float uFogDensity;
+            uniform float uTime;
+            varying vec2 vUv;
+            
+            float rand(vec2 co) {
+                return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+            }
+            
+            vec3 ACESFilm(vec3 x) {
+                float a = 2.51;
+                float b = 0.03;
+                float c = 2.43;
+                float d = 0.59;
+                float e = 0.14;
+                return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0.0, 1.0);
+            }
+            
+            void main() {
+                vec4 tex = texture2D(tDiffuse, vUv);
+                vec3 col = tex.rgb * uExposure;
+                
+                float dist = length(vUv - vec2(0.3, 0.5));
+                float fogVal = smoothstep(0.1, 0.95, dist) * uFogDensity;
+                col = mix(col, vec3(0.88, 0.9, 0.95), fogVal * 0.35);
+                
+                vec3 bloom = max(col - 0.72, 0.0) * uBloomStrength;
+                col += bloom;
+                
+                col = ACESFilm(col);
+                
+                float grain = (rand(vUv * uTime) - 0.5) * 0.024;
+                col += vec3(grain);
+                
+                float vig = vUv.x * vUv.y * (1.0 - vUv.x) * (1.0 - vUv.y);
+                vig = clamp(pow(16.0 * vig, 0.35), 0.0, 1.0);
+                col *= vig;
+                
+                gl_FragColor = vec4(col, tex.a);
+            }
+        `;
+        
+        this.postMaterial = new THREE.ShaderMaterial({
+            vertexShader: postVertexShader,
+            fragmentShader: postFragmentShader,
+            uniforms: {
+                tDiffuse: { value: this.rtScene.texture },
+                uExposure: { value: 1.0 },
+                uBloomStrength: { value: 1.5 },
+                uFogDensity: { value: 0.1 },
+                uTime: { value: 0 }
+            },
+            depthWrite: false,
+            depthTest: false
+        });
+        
+        this.postCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+        this.postScene = new THREE.Scene();
+        this.postQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.postMaterial);
+        this.postScene.add(this.postQuad);
+        
+        const skyVertexShader = `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `;
+        
+        const skyFragmentShader = `
+            uniform float uTimeOfDay;
+            varying vec2 vUv;
+            void main() {
+                vec3 night = vec3(0.01, 0.01, 0.05);
+                vec3 dawn = vec3(0.9, 0.45, 0.32);
+                vec3 noon = vec3(0.35, 0.58, 0.9);
+                vec3 dusk = vec3(0.38, 0.15, 0.45);
+                
+                vec3 sky = vec3(0.0);
+                float t = uTimeOfDay;
+                if (t < 0.25) {
+                    sky = mix(night, dawn, t / 0.25);
+                } else if (t < 0.5) {
+                    sky = mix(dawn, noon, (t - 0.25) / 0.25);
+                } else if (t < 0.75) {
+                    sky = mix(noon, dusk, (t - 0.5) / 0.25);
+                } else {
+                    sky = mix(dusk, night, (t - 0.75) / 0.25);
+                }
+                
+                float sunY = 0.5 + 0.5 * sin(t * 6.28);
+                float sunGlow = smoothstep(0.85, 1.0, 1.0 - length(vUv - vec2(0.32, sunY)));
+                sky += vec3(1.0, 0.9, 0.7) * sunGlow * 0.38;
+                
+                gl_FragColor = vec4(sky, 1.0);
+            }
+        `;
+        
+        this.skyMaterial = new THREE.ShaderMaterial({
+            vertexShader: skyVertexShader,
+            fragmentShader: skyFragmentShader,
+            uniforms: {
+                uTimeOfDay: { value: this.timeOfDay }
+            },
+            side: THREE.BackSide
+        });
+        
+        this.skyMesh = new THREE.Mesh(new THREE.SphereGeometry(100, 32, 32), this.skyMaterial);
+        this.scene.add(this.skyMesh);
+
+        // Water ShaderMaterial and Mesh
+        const waterVertexShader = `
+            varying vec2 vUv;
+            varying vec3 vPosition;
+            void main() {
+                vUv = uv;
+                vPosition = position;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `;
+        
+        const waterFragmentShader = `
+            uniform float uTime;
+            uniform float uWindSpeed;
+            uniform float uRainIntensity;
+            uniform vec2 uRipples[10];
+            varying vec2 vUv;
+            varying vec3 vPosition;
+            
+            vec2 hash22(vec2 p) {
+                p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+                return fract(sin(p) * 43758.5453);
+            }
+            
+            float voronoi(vec2 p) {
+                vec2 n = floor(p);
+                vec2 f = fract(p);
+                float minDist = 1.0;
+                for (int j = -1; j <= 1; j++) {
+                    for (int i = -1; i <= 1; i++) {
+                        vec2 g = vec2(float(i), float(j));
+                        vec2 o = hash22(n + g);
+                        vec2 r = g + o - f;
+                        float d = dot(r, r);
+                        if (d < minDist) {
+                            minDist = d;
+                        }
+                    }
+                }
+                return sqrt(minDist);
+            }
+            
+            void main() {
+                vec2 flowDir = vec2(1.0, -0.18 * sin(vUv.x * 3.14));
+                float speed = uTime * 0.42 * (1.0 + uWindSpeed * 0.15);
+                
+                vec2 uv1 = vUv * 6.0 - flowDir * speed;
+                vec2 uv2 = vUv * 6.0 - flowDir * speed * 1.35 + vec2(0.24, 0.48);
+                
+                float n1 = voronoi(uv1);
+                float n2 = voronoi(uv2);
+                float caustic = pow(1.0 - mix(n1, n2, 0.5), 5.0);
+                
+                vec3 waterColor = mix(vec3(0.02, 0.12, 0.22), vec3(0.08, 0.28, 0.38), caustic * 0.4);
+                
+                float edgeFoam = smoothstep(0.78, 1.0, abs(vUv.y - 0.5) * 2.0);
+                waterColor = mix(waterColor, vec3(0.92, 0.95, 0.98), edgeFoam * 0.25 * (0.8 + 0.2 * sin(uTime * 2.5)));
+                
+                float rippleSum = 0.0;
+                for (int i = 0; i < 6; i++) {
+                    vec2 ripCenter = uRipples[i];
+                    if (ripCenter.x > 0.0) {
+                        float dist = length(vUv - ripCenter);
+                        float wave = sin(dist * 50.0 - uTime * 12.0) * exp(-dist * 18.0);
+                        rippleSum += max(wave, 0.0) * uRainIntensity;
+                    }
+                }
+                waterColor += vec3(rippleSum * 0.35);
+                
+                gl_FragColor = vec4(waterColor, 0.85);
+            }
+        `;
+        
+        this.waterMaterial = new THREE.ShaderMaterial({
+            vertexShader: waterVertexShader,
+            fragmentShader: waterFragmentShader,
+            uniforms: {
+                uTime: { value: 0 },
+                uWindSpeed: { value: this.windSpeed },
+                uRainIntensity: { value: 0 },
+                uRipples: { value: Array(10).fill(new THREE.Vector2(-1, -1)) }
+            },
+            transparent: true
+        });
+        
+        this.waterMesh = new THREE.Mesh(new THREE.PlaneGeometry(12, 5), this.waterMaterial);
+        this.waterMesh.position.set(0, -3.2, 1);
+        this.scene.add(this.waterMesh);
     }
     
     initStars() {
@@ -212,6 +468,13 @@ class LivingWorldEngine {
             c.getContext('2d').setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
         });
         
+        if (this.renderer) {
+            this.renderer.setSize(this.width, this.height);
+            this.rtScene.setSize(this.width * this.dpr, this.height * this.dpr);
+            this.camera.aspect = this.width / this.height;
+            this.camera.updateProjectionMatrix();
+        }
+        
         this.initStars();
         this.drawGalaxy();
     }
@@ -271,6 +534,22 @@ class LivingWorldEngine {
     setTimeOfDay(timeVal) {
         this.timeOfDay = timeVal;
         this.updateLighting();
+        if (this.skyMaterial) {
+            this.skyMaterial.uniforms.uTimeOfDay.value = timeVal;
+        }
+    }
+    
+    setCommitCount(count) {
+        this.commitCount = count;
+        const scale = 1.0 + (count / 150);
+        if (this.leftTree && this.rightTree) {
+            this.leftTree.length = this.height * 0.12 * scale;
+            this.rightTree.length = this.height * 0.14 * scale;
+        }
+        const targetBirds = Math.min(25, 4 + Math.floor(count / 15));
+        while (this.birds.length < targetBirds) {
+            this.birds.push(new Bird(this.width, this.height));
+        }
     }
     
     updateLighting() {
@@ -331,6 +610,23 @@ class LivingWorldEngine {
             this.gCtx.fill();
         });
         this.gCtx.globalAlpha = 1.0;
+
+        // Draw Moon crescent procedurally
+        const moonX = this.width * 0.82;
+        const moonY = this.height * 0.22;
+        this.gCtx.fillStyle = 'rgba(254, 243, 199, 0.95)';
+        this.gCtx.beginPath();
+        this.gCtx.arc(moonX, moonY, 18, 0, Math.PI * 2);
+        this.gCtx.fill();
+        
+        const dayOfMonth = new Date().getDate();
+        const phaseOffset = (dayOfMonth % 30) / 30; // 0 to 1
+        if (phaseOffset !== 0.5) {
+            this.gCtx.fillStyle = '#050505';
+            this.gCtx.beginPath();
+            this.gCtx.arc(moonX - 10 + phaseOffset * 20, moonY, 18, 0, Math.PI * 2);
+            this.gCtx.fill();
+        }
     }
     
     spawnRipple(x, y, size = 10, speed = 1, maxRadius = 45) {
@@ -361,6 +657,14 @@ class LivingWorldEngine {
             this.mascotY += (this.cursorActiveY - this.mascotY) * 0.12;
             
             if (Math.random() < 0.38) {
+                let pColor = `rgba(${230 + Math.round(Math.random() * 25)}, ${180 + Math.round(Math.random() * 50)}, 40, `;
+                if (window.currentCursorColor && window.currentCursorColor.startsWith('#')) {
+                    const hex = window.currentCursorColor;
+                    const r = parseInt(hex.slice(1, 3), 16);
+                    const g = parseInt(hex.slice(3, 5), 16);
+                    const b = parseInt(hex.slice(5, 7), 16);
+                    pColor = `rgba(${r}, ${g}, ${b}, `;
+                }
                 this.mascotParticles.push({
                     x: this.mascotX + (Math.random() - 0.5) * 6,
                     y: this.mascotY + (Math.random() - 0.5) * 6,
@@ -368,7 +672,7 @@ class LivingWorldEngine {
                     vy: -Math.random() * 0.6 - 0.2,
                     size: Math.random() * 2 + 1.2,
                     alpha: 1.0,
-                    color: `rgba(${230 + Math.round(Math.random() * 25)}, ${180 + Math.round(Math.random() * 50)}, 40, `
+                    color: pColor
                 });
             }
         }
@@ -407,13 +711,39 @@ class LivingWorldEngine {
         document.documentElement.style.setProperty('--sway-angle-left', `${swayAngleLeft}deg`);
         document.documentElement.style.setProperty('--sway-angle-right', `${swayAngleRight}deg`);
 
+        // Check for active open modal and adjust focal lens / scale
+        const activeModal = document.querySelector('.glass-modal.open');
+        let targetScale = 1.03;
+        let focalX = 0;
+        let focalY = 0;
+        
+        if (activeModal) {
+            targetScale = 1.15; // Cinematic zoom-in
+            const modalId = activeModal.id;
+            // Focal offsets to pan the scene toward the corresponding hotspot
+            if (modalId === 'modal-about') { focalX = -0.22; focalY = -0.22; }
+            else if (modalId === 'modal-skills') { focalX = 0.28; focalY = 0.05; }
+            else if (modalId === 'modal-projects') { focalX = -0.18; focalY = -0.05; }
+            else if (modalId === 'modal-greenhouse') { focalX = -0.15; focalY = 0.35; }
+            else if (modalId === 'modal-contact') { focalX = -0.42; focalY = 0.15; }
+            else if (modalId === 'modal-shrine') { focalX = 0.05; focalY = 0.35; }
+        }
+        
+        this.currentScale = this.currentScale || 1.03;
+        this.currentScale += (targetScale - this.currentScale) * 0.04; // Smooth scale spring
+        
+        this.focalX = this.focalX || 0;
+        this.focalY = this.focalY || 0;
+        this.focalX += (focalX - this.focalX) * 0.04; // Smooth pan spring
+        this.focalY += (focalY - this.focalY) * 0.04;
+
         this.mouseX += (this.targetMouseX - this.mouseX) * 0.08;
         this.mouseY += (this.targetMouseY - this.mouseY) * 0.08;
         
-        const tiltX = this.mouseX * 15;
-        const tiltY = this.mouseY * 15;
+        const tiltX = (this.mouseX + this.focalX) * 15;
+        const tiltY = (this.mouseY + this.focalY) * 15;
         
-        const transformString = `scale(1.03) translate(${tiltX}px, ${tiltY}px)`;
+        const transformString = `scale(${this.currentScale}) translate(${tiltX}px, ${tiltY}px)`;
         this.baseImage.style.transform = transformString;
         this.treeLeft.style.transform = `${transformString} rotate(0.4deg)`;
         this.treeRight.style.transform = `${transformString} rotate(-0.5deg)`;
@@ -433,6 +763,17 @@ class LivingWorldEngine {
         
         this.pCtx.save();
         this.pCtx.translate(tiltX * 1.0, tiltY * 1.0);
+        
+        const lWind = this.getWindForceAt(this.width * 0.12, this.height * 0.6, now * 0.001);
+        const rWind = this.getWindForceAt(this.width * 0.85, this.height * 0.7, now * 0.001);
+        
+        if (this.leftTree && this.rightTree) {
+            this.leftTree.update(this.width * 0.12, this.height * 0.72, 0, lWind, dt);
+            this.rightTree.update(this.width * 0.85, this.height * 0.84, 0, rWind, dt);
+            
+            this.leftTree.draw(this.pCtx);
+            this.rightTree.draw(this.pCtx);
+        }
         
         // ripples
         this.ripples.forEach((r, idx) => {
@@ -493,11 +834,41 @@ class LivingWorldEngine {
             });
         }
         
-        // Fireflies
+        // Fireflies & Shooting Stars
         if (this.isNight) {
             this.fireflies.forEach(f => {
                 f.update(this.width, this.height, dt);
                 f.draw(this.pCtx);
+            });
+
+            if (Math.random() < 0.003 * dt) {
+                this.shootingStars.push({
+                    x: Math.random() * this.width * 0.7,
+                    y: Math.random() * this.height * 0.28,
+                    vx: Math.random() * 8 + 6,
+                    vy: Math.random() * 3 + 2,
+                    length: Math.random() * 60 + 40,
+                    alpha: 1.0
+                });
+            }
+            
+            this.shootingStars.forEach((ss, idx) => {
+                ss.x += ss.vx * dt;
+                ss.y += ss.vy * dt;
+                ss.alpha -= 0.045 * dt;
+                
+                this.pCtx.save();
+                this.pCtx.beginPath();
+                this.pCtx.strokeStyle = `rgba(255, 255, 255, ${ss.alpha * 0.8})`;
+                this.pCtx.lineWidth = 1.8;
+                this.pCtx.moveTo(ss.x, ss.y);
+                this.pCtx.lineTo(ss.x - ss.vx * 2.5, ss.y - ss.vy * 2.5);
+                this.pCtx.stroke();
+                this.pCtx.restore();
+                
+                if (ss.alpha <= 0 || ss.x > this.width || ss.y > this.height) {
+                    this.shootingStars.splice(idx, 1);
+                }
             });
         }
         
@@ -512,13 +883,15 @@ class LivingWorldEngine {
             this.koi.draw(this.wCtx);
         }
         
+        const hour = this.timeOfDay * 24;
+
         if (this.squirrel) {
-            this.squirrel.update(this.width, this.height, dt);
+            this.squirrel.update(this.width, this.height, this.weatherMode, hour, dt);
             this.squirrel.draw(this.pCtx);
         }
         
         if (this.fox) {
-            this.fox.update(this.width, this.height, dt);
+            this.fox.update(this.width, this.height, this.weatherMode, hour, dt);
             this.fox.draw(this.pCtx);
         }
         
@@ -527,9 +900,9 @@ class LivingWorldEngine {
             this.pCtx.save();
             this.pCtx.beginPath();
             this.pCtx.arc(this.mascotX, this.mascotY, 3.5, 0, Math.PI * 2);
-            this.pCtx.fillStyle = 'rgba(252, 211, 77, 0.9)';
+            this.pCtx.fillStyle = window.currentCursorColor || 'rgba(252, 211, 77, 0.9)';
             this.pCtx.shadowBlur = 10;
-            this.pCtx.shadowColor = 'rgba(252, 211, 77, 1)';
+            this.pCtx.shadowColor = window.currentCursorColor || 'rgba(252, 211, 77, 1)';
             this.pCtx.fill();
             this.pCtx.restore();
         }
@@ -553,6 +926,44 @@ class LivingWorldEngine {
         
         this.wCtx.restore();
         this.pCtx.restore();
+        
+        const devOverlay = document.getElementById('dev-overlay');
+        if (devOverlay && !devOverlay.classList.contains('hidden')) {
+            const fpsNode = document.getElementById('dev-fps');
+            const particlesNode = document.getElementById('dev-particles');
+            const windNode = document.getElementById('dev-wind');
+            if (fpsNode) fpsNode.innerText = Math.round(60 / Math.max(0.1, dt));
+            if (particlesNode) particlesNode.innerText = this.waterParticles.length + this.petals.length + this.splashParticles.length;
+            if (windNode) windNode.innerText = this.windSpeed.toFixed(2);
+        }
+
+        if (this.renderer) {
+            if (this.postMaterial) {
+                this.postMaterial.uniforms.uTime.value = now * 0.001;
+                this.postMaterial.uniforms.uFogDensity.value = this.weatherMode === 'fog' ? 0.38 : (this.weatherMode === 'rain' || this.weatherMode === 'storm' ? 0.15 : 0.05);
+                this.postMaterial.uniforms.uBloomStrength.value = this.weatherMode === 'storm' ? 2.5 : (this.isNight ? 1.8 : 1.2);
+            }
+            if (this.waterMaterial) {
+                this.waterMaterial.uniforms.uTime.value = now * 0.001;
+                this.waterMaterial.uniforms.uWindSpeed.value = this.windSpeed;
+                this.waterMaterial.uniforms.uRainIntensity.value = (this.weatherMode === 'rain' || this.weatherMode === 'storm') ? 1.0 : 0.0;
+                
+                const ripCoords = this.ripples.slice(0, 10).map(r => new THREE.Vector2(r.x / this.width, 1.0 - r.y / this.height));
+                while (ripCoords.length < 10) ripCoords.push(new THREE.Vector2(-1, -1));
+                this.waterMaterial.uniforms.uRipples.value = ripCoords;
+            }
+            
+            const breathing = Math.sin(now * 0.001) * 0.08;
+            this.camera.position.x = this.mouseX * 0.8;
+            this.camera.position.y = -this.mouseY * 0.8 + breathing;
+            this.camera.lookAt(0, 0, 0);
+            
+            this.renderer.setRenderTarget(this.rtScene);
+            this.renderer.render(this.scene, this.camera);
+            
+            this.renderer.setRenderTarget(null);
+            this.renderer.render(this.postScene, this.postCamera);
+        }
         
         requestAnimationFrame(() => this.animate());
     }
@@ -678,6 +1089,68 @@ class LivingWorldEngine {
                     this.mistParticles.push(new MistParticle(steamX, steamY));
                 }
             }
+        }
+    }
+
+    getWindForceAt(x, y, time) {
+        const baseNoise = Math.sin(x * 0.005 + time * 0.5) * Math.cos(y * 0.005 + time * 0.3);
+        const gust = Math.sin(time * 1.8) * Math.cos(time * 0.9) * 0.4 + 0.6;
+        
+        let shelter = 1.0;
+        if (x > this.width * 0.3 && x < this.width * 0.5) {
+            shelter = 0.28;
+        }
+        
+        return (this.windSpeed * (baseNoise * 0.35 + gust * 0.65)) * shelter;
+    }
+}
+
+// Hierarchical Skeletal Tree Branch Simulation
+class TreeBranch {
+    constructor(length, angle, stiffness, parent = null) {
+        this.length = length;
+        this.angle = angle;
+        this.baseAngle = angle;
+        this.stiffness = stiffness;
+        this.worldX = 0;
+        this.worldY = 0;
+        this.worldAngle = 0;
+        this.children = [];
+        this.parent = parent;
+    }
+    
+    addChild(length, angle, stiffness) {
+        const child = new TreeBranch(length, angle, stiffness, this);
+        this.children.push(child);
+        return child;
+    }
+    
+    update(parentX, parentY, parentAngle, windForce, dt) {
+        this.worldAngle = parentAngle + this.angle;
+        const bend = (windForce / this.stiffness) * Math.cos(this.worldAngle) * 0.12 * dt;
+        this.angle += (this.baseAngle + bend - this.angle) * 0.08 * dt;
+        
+        this.worldX = parentX + Math.sin(this.worldAngle) * this.length;
+        this.worldY = parentY - Math.cos(this.worldAngle) * this.length;
+        
+        this.children.forEach(c => c.update(this.worldX, this.worldY, this.worldAngle, windForce, dt));
+    }
+    
+    draw(ctx) {
+        ctx.beginPath();
+        ctx.moveTo(this.parent ? this.parent.worldX : this.worldX, this.parent ? this.parent.worldY : this.worldY + this.length);
+        ctx.lineTo(this.worldX, this.worldY);
+        ctx.lineWidth = this.stiffness * 0.8;
+        ctx.strokeStyle = '#2b1d0c';
+        ctx.stroke();
+        
+        if (this.children.length === 0) {
+            ctx.beginPath();
+            ctx.arc(this.worldX, this.worldY, 4, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(244, 63, 94, 0.72)';
+            ctx.fill();
+        } else {
+            this.children.forEach(c => c.draw(ctx));
         }
     }
 }
@@ -1167,10 +1640,27 @@ class Squirrel {
         this.timer = Math.random() * 250 + 100;
     }
     
-    update(w, h, dt = 1) {
+    update(w, h, weatherMode, hour, dt = 1) {
         this.w = w;
         this.h = h;
         this.x = this.w * 0.13;
+        
+        if (weatherMode === 'rain' || weatherMode === 'storm') {
+            this.state = 'sheltering';
+            this.y += (this.h * 0.44 - this.y) * 0.08 * dt;
+            return;
+        }
+        
+        if (hour >= 20 || hour < 6) {
+            this.state = 'sleeping';
+            this.y += (this.h * 0.44 - this.y) * 0.08 * dt;
+            return;
+        }
+        
+        if (this.state === 'sleeping' || this.state === 'sheltering') {
+            this.state = 'idle';
+            this.timer = Math.random() * 100 + 50;
+        }
         
         if (this.state === 'idle') {
             this.timer -= dt;
@@ -1225,7 +1715,7 @@ class Fox {
         this.timer = Math.random() * 1000 + 600;
     }
     
-    update(w, h, dt = 1) {
+    update(w, h, weatherMode, hour, dt = 1) {
         this.w = w;
         this.h = h;
         
@@ -1242,14 +1732,36 @@ class Fox {
             return a * Math.pow(x - h_offset, 2) + k;
         };
         
-        if (this.state === 'hidden') {
-            this.timer -= dt;
-            if (this.timer <= 0) {
-                this.state = 'walking';
-                this.x = this.w * 0.43;
-                this.vx = 0.65;
-            }
+        this.homeX = this.w * 0.15;
+        this.homeY = this.h * 0.72;
+        
+        if (weatherMode === 'rain' || weatherMode === 'storm') {
+            this.state = 'sheltering';
+            this.x += (this.homeX - this.x) * 0.05 * dt;
+            this.y += (this.homeY - this.y) * 0.05 * dt;
             return;
+        }
+        
+        if (hour >= 21 || hour < 5) {
+            this.state = 'sleeping';
+            this.x = this.homeX;
+            this.y = this.homeY;
+            return;
+        }
+        
+        if (hour >= 12 && hour < 13) {
+            this.state = 'drinking';
+            const drinkX = this.w * 0.52;
+            const drinkY = this.h * 0.88;
+            this.x += (drinkX - this.x) * 0.04 * dt;
+            this.y += (drinkY - this.y) * 0.04 * dt;
+            return;
+        }
+        
+        if (this.state === 'hidden' || this.state === 'sleeping' || this.state === 'drinking' || this.state === 'sheltering') {
+            this.state = 'walking';
+            this.x = this.w * 0.43;
+            this.vx = 0.65;
         }
         
         this.x += this.vx * dt;

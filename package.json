@@ -1,0 +1,39 @@
+{
+  "name": "where-winds-meet",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Elysium: a deployable cinematic living portfolio world.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node scripts/build.mjs",
+    "preview": "vite preview",
+    "start": "node scripts/serve.mjs dist 4173",
+    "check": "node --check engine.js && node --check script.js && node scripts/validate.mjs"
+  },
+  "dependencies": {
+
+    "clsx": "^2.1.1",
+    "framer-motion": "^11.3.8",
+    "lucide-react": "^0.412.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^2.4.0",
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/three": "^0.160.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.39",
+    "tailwindcss": "^3.4.6",
+    "typescript": "^5.5.3",
+    "vite": "^5.3.3",
+    "vite-tsconfig-paths": "^4.3.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

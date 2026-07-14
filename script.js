@@ -33,13 +33,36 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     function updateCursor() {
-        cX += (mX - cX) * 0.15;
-        cY += (mY - cY) * 0.15;
+        cX += (mX - cX) * 0.07; // Smooth trailing physics
+        cY += (mY - cY) * 0.07;
         cRing.style.left = `${cX}px`;
         cRing.style.top = `${cY}px`;
         requestAnimationFrame(updateCursor);
     }
     updateCursor();
+
+    // Helper to shift cursor colors dynamically
+    window.setCursorColor = (color, glow = '') => {
+        document.documentElement.style.setProperty('--cursor-color', color);
+        if (glow) {
+            document.documentElement.style.setProperty('--cursor-glow', glow);
+        } else {
+            // Compute a default soft glow from the hex color
+            if (color.startsWith('#')) {
+                const r = parseInt(color.slice(1, 3), 16);
+                const g = parseInt(color.slice(3, 5), 16);
+                const b = parseInt(color.slice(5, 7), 16);
+                document.documentElement.style.setProperty('--cursor-glow', `rgba(${r}, ${g}, ${b}, 0.08)`);
+            } else {
+                document.documentElement.style.setProperty('--cursor-glow', 'rgba(255, 255, 255, 0.05)');
+            }
+        }
+    };
+
+    window.resetCursorColor = () => {
+        document.documentElement.style.setProperty('--cursor-color', 'var(--primary)');
+        document.documentElement.style.setProperty('--cursor-glow', 'rgba(255, 107, 53, 0.05)');
+    };
 
     const interactables = 'a, button, label, input[type="range"], .hotspot-node, .compass-label';
     document.querySelectorAll(interactables).forEach(el => {
@@ -50,6 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 3. WEB AUDIO API SYNTHESIZER ---
     let audioCtx = null;
     let masterGain = null;
+    let occlusionFilter = null;
+    let waterPanner = null;
     let windGainNode = null;
     let waterGainNode = null;
     let rainGainNode = null;
@@ -64,13 +89,36 @@ document.addEventListener('DOMContentLoaded', () => {
         
         masterGain = audioCtx.createGain();
         masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
-        masterGain.connect(audioCtx.destination);
+        
+        occlusionFilter = audioCtx.createBiquadFilter();
+        occlusionFilter.type = 'lowpass';
+        occlusionFilter.frequency.setValueAtTime(20000, audioCtx.currentTime);
+        
+        masterGain.connect(occlusionFilter);
+        occlusionFilter.connect(audioCtx.destination);
         
         windGainNode = createWindGenerator();
         if (windGainNode) windGainNode.connect(masterGain);
         
         waterGainNode = createWaterGenerator();
-        if (waterGainNode) waterGainNode.connect(masterGain);
+        if (waterGainNode) {
+            waterPanner = audioCtx.createPanner ? audioCtx.createPanner() : null;
+            if (waterPanner) {
+                waterPanner.panningModel = 'HRTF';
+                waterPanner.distanceModel = 'exponential';
+                waterPanner.refDistance = 1;
+                waterPanner.maxDistance = 100;
+                waterPanner.rolloffFactor = 1.5;
+                waterPanner.positionX.setValueAtTime(-3.0, audioCtx.currentTime);
+                waterPanner.positionY.setValueAtTime(1.5, audioCtx.currentTime);
+                waterPanner.positionZ.setValueAtTime(-1.0, audioCtx.currentTime);
+                
+                waterGainNode.connect(waterPanner);
+                waterPanner.connect(masterGain);
+            } else {
+                waterGainNode.connect(masterGain);
+            }
+        }
         
         rainGainNode = createRainGenerator();
         if (rainGainNode) rainGainNode.connect(masterGain);
@@ -362,11 +410,21 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (modalId === 'modal-shrine') rot = 45;
         
         if (pointer) pointer.style.transform = `translate(-50%, -50%) rotate(${rot}deg)`;
+        
+        if (audioCtx && occlusionFilter) {
+            occlusionFilter.frequency.setValueAtTime(occlusionFilter.frequency.value, audioCtx.currentTime);
+            occlusionFilter.frequency.linearRampToValueAtTime(700, audioCtx.currentTime + 0.4);
+        }
     };
     
     const closeAllModals = () => {
         modals.forEach(m => m.classList.remove('open'));
         document.body.classList.remove('modal-open');
+        
+        if (audioCtx && occlusionFilter) {
+            occlusionFilter.frequency.setValueAtTime(occlusionFilter.frequency.value, audioCtx.currentTime);
+            occlusionFilter.frequency.linearRampToValueAtTime(20000, audioCtx.currentTime + 0.4);
+        }
     };
     
     hotspotNodes.forEach(node => {
@@ -410,7 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const termHistory = termModal.querySelector('.terminal-history');
 
     const terminalCommands = {
-        help: 'COMMAND LIST:\n  about     Reveal Sreeshanth Reddy\'s systems design philosophy\n  skills    Technical capabilities, program language stacks\n  projects  Details on VERI, Project S, Solomon X, CDC\n  contact   Developer email & coordinate vectors\n  season    Override seasonal settings [winter/spring/summer/autumn]\n  weather   Override weather parameters [clear/rain/snow/fog/storm]\n  time      Shift world lighting dial [morning/noon/sunset/night]\n  spirit    Summon spirit narrator core mascot\n  clear     Purge history buffer',
+        help: 'COMMAND LIST:\n  about     Reveal Sreeshanth Reddy\'s systems design philosophy\n  skills    Technical capabilities, program language stacks\n  projects  Details on VERI, Project S, Solomon X, CDC\n  commit    Override simulated GitHub commit productivity [number]\n  contact   Developer email & coordinate vectors\n  season    Override seasonal settings [winter/spring/summer/autumn]\n  weather   Override weather parameters [clear/rain/snow/fog/storm]\n  time      Shift world lighting dial [morning/noon/sunset/night]\n  wind      Override ecosystem wind force [low/medium/high]\n  spirit    Summon spirit narrator core mascot\n  clear     Purge history buffer',
         about: 'OPERATOR IDENTITY:\nSreeshanth Reddy Namireddy — AI Systems & Infrastructure Builder.\nExplores operating systems, vector memory caches, model runtimes, and local hardware pipelines from first principles.',
         skills: 'CAPABILITIES NODE:\n- Languages: Python, TypeScript, C, C++, SQL. (Learning Go & Rust)\n- Architectures: Distributed agents, Vector embeds, Redis pipelines, WebSockets, Model Context Protocol (MCP).\n- Runtimes: Docker containers, PyTorch tensors, vLLM local scheduling.',
         projects: 'FEATURED PEAKS:\n- [VERI] AI runtime governance with LangGraph risk assessments.\n- [Project S] Multimodal adaptive memory workspace with WebSockets & Redis.\n- [Solomon X] Conversation file workstation utilizing MCP bindings.\n- [CDC] Voice edge assistant running local hardware LLM triggers.',
@@ -457,7 +515,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 let response = '';
-                if (cmd === 'season') {
+                if (cmd === 'commit') {
+                    const count = parseInt(val);
+                    if (!isNaN(count) && count >= 0) {
+                        if (window.worldEngine) {
+                            window.worldEngine.setCommitCount(count);
+                            showNarrativeMsg(`Ecosystem updated with GitHub Commits: ${count}`);
+                            setTimeout(hideNarrative, 3500);
+                        }
+                        response = `Ecosystem commit count updated to ${count}. Trees resized, birds flocking scaled.`;
+                    } else {
+                        response = 'Usage: commit [number]';
+                    }
+                } else if (cmd === 'season') {
                     if (['winter', 'spring', 'summer', 'autumn'].includes(val)) {
                         if (window.worldEngine) {
                             const prevSeason = window.worldEngine.season.toLowerCase();
@@ -516,6 +586,43 @@ document.addEventListener('DOMContentLoaded', () => {
                         response = `Lighting dial set to ${val.toUpperCase()}.`;
                     } else {
                         response = 'Usage: time [morning/noon/sunset/night]';
+                    }
+                } else if (cmd === 'wind') {
+                    let speed = -1;
+                    if (val === 'low') speed = 0.3;
+                    else if (val === 'medium') speed = 1.0;
+                    else if (val === 'high') speed = 2.5;
+                    
+                    if (speed >= 0) {
+                        if (window.worldEngine) {
+                            window.worldEngine.windSpeed = speed;
+                            window.worldEngine.targetWindSpeed = speed;
+                            
+                            // Adjust CSS variables for tree sways
+                            const rootStyles = document.documentElement.style;
+                            if (val === 'low') {
+                                rootStyles.setProperty('--sway-duration-left', '22s');
+                                rootStyles.setProperty('--sway-duration-right', '18s');
+                                rootStyles.setProperty('--sway-angle-left', '0.3deg');
+                                rootStyles.setProperty('--sway-angle-right', '-0.4deg');
+                            } else if (val === 'medium') {
+                                rootStyles.setProperty('--sway-duration-left', '14s');
+                                rootStyles.setProperty('--sway-duration-right', '11s');
+                                rootStyles.setProperty('--sway-angle-left', '0.6deg');
+                                rootStyles.setProperty('--sway-angle-right', '-0.8deg');
+                            } else if (val === 'high') {
+                                rootStyles.setProperty('--sway-duration-left', '7s');
+                                rootStyles.setProperty('--sway-duration-right', '5.5s');
+                                rootStyles.setProperty('--sway-angle-left', '1.4deg');
+                                rootStyles.setProperty('--sway-angle-right', '-1.8deg');
+                            }
+                            
+                            showNarrativeMsg(`Wind force overridden to: ${val.toUpperCase()}`);
+                            setTimeout(hideNarrative, 3500);
+                        }
+                        response = `Wind force successfully set to ${val.toUpperCase()} (${speed}x).`;
+                    } else {
+                        response = 'Usage: wind [low/medium/high]';
                     }
                 } else {
                     response = terminalCommands[cmd] || `Command not recognized: '${cmd}'. Type 'help' for options.`;
@@ -593,16 +700,41 @@ document.addEventListener('DOMContentLoaded', () => {
         if (narratorBox) narratorBox.classList.add('hidden');
     };
 
+    const cursorColors = {
+        'modal-about': '#ff6b35',      // Amber/Orange
+        'modal-skills': '#78dcca',     // Glacial Stream (Teal)
+        'modal-projects': '#4ade80',   // Forest Leaf (Green)
+        'modal-greenhouse': '#f8d66d', // Volumetric Sun (Yellow)
+        'modal-contact': '#b9a7ff',    // Cosmic Shrine (Violet)
+        'modal-shrine': '#fbbf24'      // Ancient Gold
+    };
+
     document.querySelectorAll('.hotspot-node').forEach(node => {
         const modalId = node.getAttribute('data-modal');
-        node.addEventListener('mouseenter', () => showNarrative(modalId));
-        node.addEventListener('mouseleave', hideNarrative);
+        node.addEventListener('mouseenter', () => {
+            showNarrative(modalId);
+            if (window.setCursorColor && cursorColors[modalId]) {
+                window.setCursorColor(cursorColors[modalId]);
+            }
+        });
+        node.addEventListener('mouseleave', () => {
+            hideNarrative();
+            if (window.resetCursorColor) window.resetCursorColor();
+        });
     });
 
     document.querySelectorAll('.compass-label').forEach(label => {
         const modalId = label.getAttribute('data-modal');
-        label.addEventListener('mouseenter', () => showNarrative(modalId));
-        label.addEventListener('mouseleave', hideNarrative);
+        label.addEventListener('mouseenter', () => {
+            showNarrative(modalId);
+            if (window.setCursorColor && cursorColors[modalId]) {
+                window.setCursorColor(cursorColors[modalId]);
+            }
+        });
+        label.addEventListener('mouseleave', () => {
+            hideNarrative();
+            if (window.resetCursorColor) window.resetCursorColor();
+        });
     });
 
     // Capture snapshot postcard
@@ -620,7 +752,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const match = bgStyle.match(/url\(['"]?([^'"]+)['"]?\)/);
                 if (match) bgUrl = match[1];
             }
-            if (!bgUrl) bgUrl = 'assets/naruto_nature.png';
+            if (!bgUrl) bgUrl = 'assets/nature_valley.png';
             
             const img = new Image();
             img.crossOrigin = 'anonymous';
@@ -728,5 +860,77 @@ document.addEventListener('DOMContentLoaded', () => {
             showNarrativeMsg(`Welcome to Elysium! Visit #${visitCount}. Return 3 times to unlock hidden valley coordinates.`);
             setTimeout(hideNarrative, 6000);
         }, 3000);
+    }
+
+    // --- 10. SPATIAL LISTENER & CINEMATIC PHOTO MODE CONTROLS ---
+    window.addEventListener('mousemove', (e) => {
+        if (!audioCtx || isMuted) return;
+        const now = audioCtx.currentTime;
+        const xVal = (e.clientX / window.innerWidth - 0.5) * 10;
+        const yVal = -(e.clientY / window.innerHeight - 0.5) * 10;
+        
+        if (audioCtx.listener) {
+            if (audioCtx.listener.positionX) {
+                audioCtx.listener.positionX.setValueAtTime(xVal, now);
+                audioCtx.listener.positionY.setValueAtTime(yVal, now);
+                audioCtx.listener.positionZ.setValueAtTime(4.5, now);
+            } else {
+                audioCtx.listener.setPosition(xVal, yVal, 4.5);
+            }
+        }
+    });
+
+    // Custom Key Listeners for Dev Mode (F3) and Photo Mode (P)
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeAllModals();
+            const pPanel = document.getElementById('photo-panel');
+            if (pPanel) pPanel.classList.add('hidden');
+        }
+        if (e.key === 'F3') {
+            e.preventDefault();
+            const devOverlay = document.getElementById('dev-overlay');
+            if (devOverlay) devOverlay.classList.toggle('hidden');
+        }
+        if ((e.key === 'p' || e.key === 'P') && document.activeElement.tagName !== 'INPUT') {
+            e.preventDefault();
+            const pPanel = document.getElementById('photo-panel');
+            if (pPanel) pPanel.classList.toggle('hidden');
+        }
+    });
+
+    // Bind Photo Panel Sliders to WebGL Uniforms
+    const photoDof = document.getElementById('photo-dof');
+    if (photoDof) {
+        photoDof.addEventListener('input', (e) => {
+            if (window.worldEngine && window.worldEngine.postMaterial) {
+                window.worldEngine.postMaterial.uniforms.uFogDensity.value = parseFloat(e.target.value) / 100;
+            }
+        });
+    }
+
+    const photoExposure = document.getElementById('photo-exposure');
+    if (photoExposure) {
+        photoExposure.addEventListener('input', (e) => {
+            if (window.worldEngine && window.worldEngine.postMaterial) {
+                window.worldEngine.postMaterial.uniforms.uExposure.value = parseFloat(e.target.value) / 15;
+            }
+        });
+    }
+
+    const photoCaptureBtn = document.getElementById('photo-capture-btn');
+    if (photoCaptureBtn) {
+        photoCaptureBtn.addEventListener('click', () => {
+            const captureBtn = document.getElementById('capture-postcard-btn');
+            if (captureBtn) captureBtn.click();
+        });
+    }
+
+    const photoCloseBtn = document.getElementById('photo-close-btn');
+    if (photoCloseBtn) {
+        photoCloseBtn.addEventListener('click', () => {
+            const pPanel = document.getElementById('photo-panel');
+            if (pPanel) pPanel.classList.add('hidden');
+        });
     }
 });

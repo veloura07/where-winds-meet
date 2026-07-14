@@ -1,0 +1,9 @@
+{
+  "name": "Elysium Living Digital World",
+  "short_name": "Elysium",
+  "description": "A cinematic interactive portfolio world for Sreeshanth Reddy Namireddy.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "background_color": "#050508",
+  "theme_color": "#ff6b35"
+}

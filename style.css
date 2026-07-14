@@ -1,6 +1,6 @@
 /* --- CORE STYLES --- */
 :root {
-    --primary: #ff6b35; /* Warm Orange matching Naruto/artwork vibes */
+    --primary: #ff6b35; /* Warm Orange sunset hue */
     --primary-glow: rgba(255, 107, 53, 0.4);
     --glass-bg: rgba(10, 10, 18, 0.55);
     --glass-border: rgba(255, 255, 255, 0.08);
@@ -42,19 +42,19 @@ a {
 .cursor-dot {
     position: absolute;
     width: 6px; height: 6px;
-    background-color: var(--primary);
+    background-color: var(--cursor-color, var(--primary));
     border-radius: 50%;
     transform: translate(-50%, -50%);
-    transition: width 0.2s, height 0.2s;
+    transition: width 0.2s, height 0.2s, background-color 0.3s;
 }
 
 .cursor-ring {
     position: absolute;
     width: 32px; height: 32px;
-    border: 1px solid rgba(255,255,255,0.25);
+    border: 1px solid var(--cursor-color, rgba(255,255,255,0.25));
     border-radius: 50%;
     transform: translate(-50%, -50%);
-    transition: width 0.2s, height 0.2s, border-color 0.2s;
+    transition: width 0.2s, height 0.2s, border-color 0.3s, background-color 0.3s;
 }
 
 body:hover .cursor-dot { opacity: 1; }
@@ -62,13 +62,13 @@ body:hover .cursor-ring { opacity: 1; }
 
 .hovering-link .cursor-dot {
     width: 10px; height: 10px;
-    background-color: var(--primary);
+    background-color: var(--cursor-color, var(--primary));
 }
 
 .hovering-link .cursor-ring {
     width: 44px; height: 44px;
-    border-color: var(--primary);
-    background-color: rgba(255, 107, 53, 0.05);
+    border-color: var(--cursor-color, var(--primary));
+    background-color: var(--cursor-glow, rgba(255, 107, 53, 0.05));
 }
 
 /* Hide normal cursor if custom cursor is active on fine pointers */
@@ -174,7 +174,7 @@ body:hover .cursor-ring { opacity: 1; }
 
 /* Base Image */
 #base-image {
-    background-image: url('assets/naruto_nature.png');
+    background-image: url('assets/nature_valley.png');
     background-size: cover;
     background-position: center bottom;
     z-index: 1;
@@ -183,7 +183,7 @@ body:hover .cursor-ring { opacity: 1; }
 /* CSS Masking for Tree Sway */
 /* Left Big Tree */
 #tree-left-sway {
-    background-image: url('assets/naruto_nature.png');
+    background-image: url('assets/nature_valley.png');
     background-size: cover;
     background-position: center bottom;
     z-index: 2;
@@ -194,7 +194,7 @@ body:hover .cursor-ring { opacity: 1; }
 
 /* Right Cherry Blossom Tree */
 #tree-right-sway {
-    background-image: url('assets/naruto_nature.png');
+    background-image: url('assets/nature_valley.png');
     background-size: cover;
     background-position: center bottom;
     z-index: 2;
@@ -975,4 +975,75 @@ body.modal-open {
 .season-spring #tree-left-sway,
 .season-spring #tree-right-sway {
     filter: none !important;
+}
+
+/* --- DEVELOPER OVERLAY PANEL --- */
+#dev-overlay {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 100;
+    background: rgba(10, 10, 15, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 8px;
+    padding: 12px 18px;
+    width: 180px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+    animation: baroFadeIn 0.8s ease-out;
+}
+
+#dev-overlay.hidden {
+    display: none !important;
+}
+
+#dev-overlay .dev-metric {
+    margin-bottom: 4px;
+}
+
+/* --- PHOTO MODE PANEL --- */
+#photo-panel {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 100;
+    background: rgba(10, 10, 15, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 12px;
+    padding: 16px 20px;
+    width: 220px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.35);
+    animation: baroFadeIn 0.8s ease-out;
+}
+
+#photo-panel.hidden {
+    display: none !important;
+}
+
+#photo-panel .photo-group {
+    margin-bottom: 8px;
+}
+
+/* --- ACCESSIBILITY: REDUCED MOTION --- */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-delay: 0s !important;
+        animation-duration: 0s !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0s !important;
+        scroll-behavior: auto !important;
+    }
+    #tree-left-sway, #tree-right-sway {
+        animation: none !important;
+    }
+    #custom-cursor {
+        display: none !important;
+    }
+    body {
+        cursor: auto !important;
+    }
 }

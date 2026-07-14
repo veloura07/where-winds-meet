@@ -49,11 +49,14 @@
         <!-- 3. Rushing Water Layer (Waterfall & River bezier tracers) -->
         <canvas id="water-canvas" class="layer"></canvas>
         
+        <!-- WebGL Render Canvas -->
+        <canvas id="webgl-canvas" class="layer"></canvas>
+        
         <!-- 4. Volumetric Light Flares -->
-        <div id="sun-flare"></div>
+        <div id="sun-flare" class="layer"></div>
         <div id="atmosphere" class="layer"></div>
         
-        <!-- 5. General Physics Layer (Birds, Petals, Fireflies, Weather) -->
+        <!-- 5. Interactive Physics canvas (wind particles, fauna, lightning, custom mouse tracers) -->
         <canvas id="physics-canvas" class="layer"></canvas>
 
         <!-- 6. Interactive Hotspots Layer (Invisible nodes with floating markers over elements) -->
@@ -73,7 +76,7 @@
             <!-- Village Hotspot (Projects) -->
             <div class="hotspot-node" style="left: 68%; top: 54%;" data-modal="modal-projects">
                 <div class="hotspot-ping"></div>
-                <div class="hotspot-label">Hidden Leaf Village <span class="hotspot-topic">Featured Projects</span></div>
+                <div class="hotspot-label">Evergreen Village <span class="hotspot-topic">Featured Projects</span></div>
             </div>
 
             <!-- Mountain Hotspot (Greenhouse Ideas) -->
@@ -174,27 +177,32 @@
 
     <!-- Modal 1: ABOUT ME (Triggered by Bridge) -->
     <div id="modal-about" class="glass-modal">
-        <div class="modal-card">
+        <div class="modal-card max-w-[95%] lg:max-w-[950px] w-full">
             <button class="modal-close-btn">&times;</button>
             <span class="modal-tag">Ecosystem Node: Wooden Bridge</span>
             <h2 class="modal-title font-playfair">The Flow of Understanding</h2>
             
-            <div class="modal-body-content">
-                <div class="narrative-section">
-                    <p class="mb-4 text-white/90 text-sm">
-                        "Why does this exist? How does it work? Can it be reinvented?" — These questions drive my exploration of modern computing from first principles.
-                    </p>
-                    <p class="mb-4 text-white/80 text-sm">
-                        I am Sreeshanth Reddy Namireddy. I believe the next generation of software will not simply assist people — it will reason, collaborate, automate, and act. As autonomous agent clusters move toward production, entirely new systems challenges emerge around reliability, observability, and containerized scale.
-                    </p>
-                    <p class="text-white/80 text-sm">
-                        Instead of chasing high-level abstraction libraries, I aim to understand systems deeply — from operating systems, distributed protocols, databases, and network buffers, to PyTorch tensors, model runtimes, and local serving backplanes.
-                    </p>
+            <div class="modal-body-content grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                <div>
+                    <div class="narrative-section">
+                        <p class="mb-4 text-white/90 text-sm">
+                            "Why does this exist? How does it work? Can it be reinvented?" — These questions drive my exploration of modern computing from first principles.
+                        </p>
+                        <p class="mb-4 text-white/80 text-sm">
+                            I am Sreeshanth Reddy Namireddy. I believe the next generation of software will not simply assist people — it will reason, collaborate, automate, and act. As autonomous agent clusters move toward production, entirely new systems challenges emerge around reliability, observability, and containerized scale.
+                        </p>
+                        <p class="text-white/80 text-sm">
+                            Instead of chasing high-level abstraction libraries, I aim to understand systems deeply — from operating systems, distributed protocols, databases, and network buffers, to PyTorch tensors, model runtimes, and local serving backplanes.
+                        </p>
+                    </div>
+                    <div class="meta-beliefs mt-6 flex flex-wrap gap-2">
+                        <span class="belief-pill text-[10px]">Build with First Principles</span>
+                        <span class="belief-pill text-[10px]">Learn Deeply, Build Broadly</span>
+                        <span class="belief-pill text-[10px]">Reliability is a Feature</span>
+                    </div>
                 </div>
-                <div class="meta-beliefs mt-6 flex flex-wrap gap-2">
-                    <span class="belief-pill text-[10px]">Build with First Principles</span>
-                    <span class="belief-pill text-[10px]">Learn Deeply, Build Broadly</span>
-                    <span class="belief-pill text-[10px]">Reliability is a Feature</span>
+                <div class="relative w-full min-h-[500px] flex items-center justify-center border-t lg:border-t-0 lg:border-l border-white/10 pt-6 lg:pt-0 lg:pl-8">
+                    <div id="react-team-root" class="w-full"></div>
                 </div>
             </div>
         </div>
@@ -296,7 +304,7 @@
     <div id="modal-projects" class="glass-modal">
         <div class="modal-card max-w-4xl">
             <button class="modal-close-btn">&times;</button>
-            <span class="modal-tag">Ecosystem Node: Hidden Leaf Village</span>
+            <span class="modal-tag">Ecosystem Node: Evergreen Village</span>
             <h2 class="modal-title font-playfair">Featured Peak Projects</h2>
             
             <div class="modal-body-content overflow-y-auto max-h-[60vh] pr-2">
@@ -460,6 +468,31 @@
         <p id="narrator-text"></p>
     </div>
 
+    <!-- Developer Overlay Panel (F3) -->
+    <div id="dev-overlay" class="hidden">
+        <div class="dev-title font-mono uppercase tracking-widest text-[#facc15] text-[10px] mb-2 font-bold border-b border-white/10 pb-1">Developer Telemetry</div>
+        <div class="dev-metric font-mono text-[9px] text-white/80">FPS: <span id="dev-fps" class="text-green-400">60</span></div>
+        <div class="dev-metric font-mono text-[9px] text-white/80">Active Particles: <span id="dev-particles" class="text-blue-400">0</span></div>
+        <div class="dev-metric font-mono text-[9px] text-white/80">Wind Intensity: <span id="dev-wind" class="text-amber-400">1.0</span></div>
+        <div class="dev-metric font-mono text-[9px] text-white/80">Render Context: <span class="text-purple-400">Three.js WebGL2</span></div>
+        <div class="dev-metric font-mono text-[9px] text-white/80">Post-Proc Pass: <span class="text-cyan-400">HDR + Bloom + Fog</span></div>
+    </div>
+
+    <!-- Photo Mode Overlay Panel -->
+    <div id="photo-panel" class="hidden">
+        <div class="photo-title font-mono uppercase tracking-widest text-[#3b82f6] text-[10px] mb-3 font-bold border-b border-white/10 pb-1">Cinematic Photo Mode</div>
+        <div class="photo-group mb-2">
+            <label class="block font-mono text-[9px] text-white/60 mb-1">Depth of Field</label>
+            <input type="range" id="photo-dof" min="0" max="100" value="50" class="w-full bg-white/10 h-1 rounded-lg appearance-none cursor-pointer">
+        </div>
+        <div class="photo-group mb-3">
+            <label class="block font-mono text-[9px] text-white/60 mb-1">Volumetric Exposure</label>
+            <input type="range" id="photo-exposure" min="1" max="50" value="15" class="w-full bg-white/10 h-1 rounded-lg appearance-none cursor-pointer">
+        </div>
+        <button id="photo-capture-btn" class="w-full px-3 py-1.5 bg-[#3b82f6] text-white font-mono text-[9px] rounded uppercase tracking-widest hover:bg-[#2563eb] transition mb-2">Capture 4K Postcard</button>
+        <button id="photo-close-btn" class="w-full px-3 py-1.5 bg-white/10 text-white/80 font-mono text-[9px] rounded uppercase tracking-widest hover:bg-white/20 transition">Exit Photo Mode</button>
+    </div>
+
     <!-- OPERATOR CONSOLE INTERACTIVE TERMINAL (Bottom Center Overlay) -->
     <button id="terminal-trigger-btn" title="Open Operators Terminal">
         <span class="terminal-icon-code">&gt;_</span> Console
@@ -498,8 +531,10 @@
         <p class="text-white/40 text-[9px] mt-4 uppercase tracking-widest">(Click to dismiss)</p>
     </div>
 
-    <!-- CDNS -->
+    <!-- CDNS & REACT ENTRYPOINT -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="engine.js"></script>
     <script src="script.js"></script>
+    <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
